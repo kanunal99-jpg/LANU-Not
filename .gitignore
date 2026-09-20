@@ -1,0 +1,27 @@
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Local files
+local.properties
+.env
+.env.local
+
+# Gradle and build directories
+.gradle/
+build/
+app/build/
+.build-outputs/
+.kotlin/
+
+# Log files
+*.log
+
+# IDE files
+.idea/
+*.iml
+.navigation/
+
+# OS files
+.DS_Store

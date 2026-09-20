@@ -1,0 +1,6 @@
+{
+  "name": "LANU Asistan",
+  "description": "Voice-enabled note taking app with tags, Firebase Firestore multi-device sync, and export options.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
