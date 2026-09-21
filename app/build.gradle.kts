@@ -24,6 +24,12 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // The project does not currently have a protected production keystore
+            // configured in CI. Use the standard Android debug signing key so the
+            // published APK is a valid, installable APK instead of an unsigned release.
+            // TODO: migrate to a protected release keystore via GitHub Actions secrets
+            // before shipping upgrade-sensitive production builds.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
