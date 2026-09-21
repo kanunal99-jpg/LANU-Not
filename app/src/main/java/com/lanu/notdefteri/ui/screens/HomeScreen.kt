@@ -1999,21 +1999,21 @@ fun NoteEditorDialog(
     onShareNote: ((Note) -> Unit)? = null
 ) {
     val note = item?.note
-    var title by remember { mutableStateOf(note?.title ?: if (!initialOcrText.isNullOrBlank()) "Görsel Taraması (${SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date())})" else "") }
-    var contentValue by remember { mutableStateOf(TextFieldValue(note?.content ?: (initialOcrText ?: ""))) }
-    var selectedTagsIds by remember { mutableStateOf(item?.tags?.map { it.id }?.toSet() ?: emptySet()) }
-    var isPinned by remember { mutableStateOf(note?.isPinned ?: false) }
-    var reminderTimeState by remember { mutableStateOf(note?.reminderTime) }
-    var locationState by remember { mutableStateOf(note?.locationName) }
-    var latitudeState by remember { mutableStateOf(note?.latitude) }
-    var longitudeState by remember { mutableStateOf(note?.longitude) }
+    var title by remember(note?.id) { mutableStateOf(note?.title ?: if (!initialOcrText.isNullOrBlank()) "Görsel Taraması (${SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date())})" else "") }
+    var contentValue by remember(note?.id) { mutableStateOf(TextFieldValue(note?.content ?: (initialOcrText ?: ""))) }
+    var selectedTagsIds by remember(note?.id) { mutableStateOf(item?.tags?.map { it.id }?.toSet() ?: emptySet()) }
+    var isPinned by remember(note?.id) { mutableStateOf(note?.isPinned ?: false) }
+    var reminderTimeState by remember(note?.id) { mutableStateOf(note?.reminderTime) }
+    var locationState by remember(note?.id) { mutableStateOf(note?.locationName) }
+    var latitudeState by remember(note?.id) { mutableStateOf(note?.latitude) }
+    var longitudeState by remember(note?.id) { mutableStateOf(note?.longitude) }
     var activeLangCode by remember { mutableStateOf("tr-TR") }
 
     // Enhanced Features State
-    var isLockedState by remember { mutableStateOf(note?.isLocked ?: false) }
-    var folderState by remember { mutableStateOf(note?.folder) }
-    var drawingPathState by remember { mutableStateOf(note?.drawingPath) }
-    var audioPathState by remember { mutableStateOf(note?.audioPath) }
+    var isLockedState by remember(note?.id) { mutableStateOf(note?.isLocked ?: false) }
+    var folderState by remember(note?.id) { mutableStateOf(note?.folder) }
+    var drawingPathState by remember(note?.id) { mutableStateOf(note?.drawingPath) }
+    var audioPathState by remember(note?.id) { mutableStateOf(note?.audioPath) }
 
     var showDrawingCanvasDialog by remember { mutableStateOf(false) }
     var showAiBottomSheet by remember { mutableStateOf(false) }
@@ -2039,10 +2039,27 @@ fun NoteEditorDialog(
         }
     }
     
-    var currentNoteId by remember { mutableStateOf(note?.id ?: 0) }
-    var saveStatus by remember { mutableStateOf(if (note == null) "Taslak" else "Tüm değişiklikler kaydedildi") }
+    var currentNoteId by remember(note?.id) { mutableStateOf(note?.id ?: 0) }
+    var saveStatus by remember(note?.id) { mutableStateOf(if (note == null) "Taslak" else "Tüm değişiklikler kaydedildi") }
 
-    var imagePathState by remember { mutableStateOf(note?.imagePath ?: initialOcrImagePath) }
+    LaunchedEffect(initialOcrText) {
+        if (!initialOcrText.isNullOrBlank() && currentNoteId == 0) {
+            coroutineScope.launch {
+                val assignedId = viewModel.saveNoteAndGetId(
+                    title = title,
+                    content = initialOcrText,
+                    id = 0,
+                    isPinned = isPinned,
+                    tagIds = selectedTagsIds.toList(),
+                    imagePath = initialOcrImagePath
+                )
+                currentNoteId = assignedId
+                saveStatus = "Görsel taraması kaydedildi"
+            }
+        }
+    }
+
+    var imagePathState by remember(note?.id) { mutableStateOf(note?.imagePath ?: initialOcrImagePath) }
     var tempPhotoFile by remember { mutableStateOf<File?>(null) }
     var isOcrScanning by remember { mutableStateOf(false) }
     var isMarkdownPreviewMode by remember { mutableStateOf(false) }
@@ -3557,7 +3574,250 @@ fun NoteEditorDialog(
                             .testTag("note_title_input")
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // VOICE DICTATION CARD (Positioned near the middle/upper area of the screen)
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .testTag("voice_dictation_card")
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (voiceState.isListening) {
+                                Text(
+                                    text = "Konuşun, dinleniyor...",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                // Soundwave graphic using our premium WaveformIndicator
+                                WaveformIndicator(
+                                    isListening = true,
+                                    rmsDb = voiceState.rmsDb,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                                if (voiceState.partialText.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "\"${voiceState.partialText}\"",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                            color = MaterialTheme.colorScheme.primary
+                                        ),
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Eller Serbest Yazdır",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                WaveformIndicator(
+                                    isListening = false,
+                                    rmsDb = 0f,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+
+                            // Display Speech Error if any
+                            voiceState.error?.let {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = it,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+
+                            // Target selection chips & speech command help button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    FilterChip(
+                                        selected = !dictationTargetTitle,
+                                        onClick = { dictationTargetTitle = false },
+                                        label = { Text("📝 Not İçeriği", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                        modifier = Modifier.height(30.dp)
+                                    )
+                                    FilterChip(
+                                        selected = dictationTargetTitle,
+                                        onClick = { dictationTargetTitle = true },
+                                        label = { Text("🏷️ Not Başlığı", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                        modifier = Modifier.height(30.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { showVoiceHelpDialog = true },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Info,
+                                        contentDescription = "Sesli Komut İpuçları",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            if (showVoiceHelpDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showVoiceHelpDialog = false },
+                                    title = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Sesli Dikte Komutları")
+                                        }
+                                    },
+                                    text = {
+                                        Column(
+                                            modifier = Modifier.verticalScroll(rememberScrollState()),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "Android SpeechRecognizer ile konuşurken aşağıdaki sözcükleri söyleyebilirsiniz:",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+
+                                            Card(
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                            ) {
+                                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Text("• \"Nokta\" ➔ .", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                                    Text("• \"Virgül\" ➔ ,", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                                    Text("• \"Yeni satır\" / \"Alt satır\" ➔ Yeni Paragraf", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                                    Text("• \"Soru işareti\" ➔ ?", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                                    Text("• \"Ünlem\" ➔ !", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                                    Text("• \"İki nokta\" ➔ :", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+
+                                            Card(
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                                            ) {
+                                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Text("• \"Notu kaydet\" ➔ Notu otomatik kaydeder", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                    Text("• \"Temizle\" ➔ Metni temizler", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                }
+                                            }
+                                        }
+                                    },
+                                    confirmButton = {
+                                        Button(onClick = { showVoiceHelpDialog = false }) {
+                                            Text("Anladım")
+                                        }
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Language Switcher
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Language,
+                                        contentDescription = "Dil",
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (activeLangCode == "tr-TR") "Türkçe" else "English",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.clickable {
+                                            activeLangCode = if (activeLangCode == "tr-TR") "en-US" else "tr-TR"
+                                        }
+                                    )
+                                }
+
+                                // Dynamic Record Button with ripple circle
+                                val scale by animateFloatAsState(if (voiceState.isListening) 1.2f else 1.0f, label = "buttonScale")
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (voiceState.isListening) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
+                                        )
+                                        .clickable {
+                                            if (!hasRecordPermission) {
+                                                requestRecordPermission()
+                                            } else {
+                                                if (voiceState.isListening) {
+                                                    viewModel.parser.stopListening()
+                                                } else {
+                                                    viewModel.parser.startListening(activeLangCode, continuous = true)
+                                                }
+                                            }
+                                        }
+                                        .testTag("dictate_button")
+                                ) {
+                                    Icon(
+                                        imageVector = if (voiceState.isListening) Icons.Default.Stop else Icons.Default.Mic,
+                                        contentDescription = if (voiceState.isListening) "Kaydı Durdur" else "Sesle Yazdır",
+                                        tint = if (voiceState.isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+
+                                // Text Instructions helper
+                                Box(
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = "Konuştuğunuz kelimeler imlecin olduğu yere otomatik eklenir.",
+                                        fontSize = 10.sp,
+                                        lineHeight = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.width(120.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
                     Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -3664,7 +3924,7 @@ fun NoteEditorDialog(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
+                                .heightIn(min = 100.dp, max = 180.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
@@ -3709,248 +3969,13 @@ fun NoteEditorDialog(
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
+                                .heightIn(min = 100.dp, max = 180.dp)
                                 .testTag("note_content_input")
                         )
                     }
                 }
 
-                // VOICE DICTATION DRAWER
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                    tonalElevation = 8.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .navigationBarsPadding()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        if (voiceState.isListening) {
-                            Text(
-                                text = "Konuşun, dinleniyor...",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            // Soundwave graphic using our premium WaveformIndicator
-                            WaveformIndicator(
-                                isListening = true,
-                                rmsDb = voiceState.rmsDb,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                            if (voiceState.partialText.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "\"${voiceState.partialText}\"",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                                        color = MaterialTheme.colorScheme.primary
-                                    ),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        } else {
-                            Text(
-                                text = "Eller Serbest Yazdır",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            WaveformIndicator(
-                                isListening = false,
-                                rmsDb = 0f,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        }
 
-                        // Display Speech Error if any
-                        voiceState.error?.let {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = it,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        // Target selection chips & speech command help button
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                FilterChip(
-                                    selected = !dictationTargetTitle,
-                                    onClick = { dictationTargetTitle = false },
-                                    label = { Text("📝 Not İçeriği", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                                    modifier = Modifier.height(30.dp)
-                                )
-                                FilterChip(
-                                    selected = dictationTargetTitle,
-                                    onClick = { dictationTargetTitle = true },
-                                    label = { Text("🏷️ Not Başlığı", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                                    modifier = Modifier.height(30.dp)
-                                )
-                            }
-
-                            IconButton(
-                                onClick = { showVoiceHelpDialog = true },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Info,
-                                    contentDescription = "Sesli Komut İpuçları",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        if (showVoiceHelpDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showVoiceHelpDialog = false },
-                                title = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Sesli Dikte Komutları")
-                                    }
-                                },
-                                text = {
-                                    Column(
-                                        modifier = Modifier.verticalScroll(rememberScrollState()),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text(
-                                            text = "Android SpeechRecognizer ile konuşurken aşağıdaki sözcükleri söyleyebilirsiniz:",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-
-                                        Card(
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                        ) {
-                                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Text("• \"Nokta\" ➔ .", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                                Text("• \"Virgül\" ➔ ,", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                                Text("• \"Yeni satır\" / \"Alt satır\" ➔ Yeni Paragraf", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                                Text("• \"Soru işareti\" ➔ ?", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                                Text("• \"Ünlem\" ➔ !", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                                Text("• \"İki nokta\" ➔ :", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-
-                                        Card(
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
-                                        ) {
-                                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Text("• \"Notu kaydet\" ➔ Notu otomatik kaydeder", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                                Text("• \"Temizle\" ➔ Metni temizler", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                            }
-                                        }
-                                    }
-                                },
-                                confirmButton = {
-                                    Button(onClick = { showVoiceHelpDialog = false }) {
-                                        Text("Anladım")
-                                    }
-                                }
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Language Switcher
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Language,
-                                    contentDescription = "Dil",
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (activeLangCode == "tr-TR") "Türkçe" else "English",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.clickable {
-                                        activeLangCode = if (activeLangCode == "tr-TR") "en-US" else "tr-TR"
-                                    }
-                                )
-                            }
-
-                            // Dynamic Record Button with ripple circle
-                            val scale by animateFloatAsState(if (voiceState.isListening) 1.2f else 1.0f, label = "buttonScale")
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (voiceState.isListening) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
-                                    )
-                                    .clickable {
-                                        if (!hasRecordPermission) {
-                                            requestRecordPermission()
-                                        } else {
-                                            if (voiceState.isListening) {
-                                                viewModel.parser.stopListening()
-                                            } else {
-                                                viewModel.parser.startListening(activeLangCode, continuous = true)
-                                            }
-                                        }
-                                    }
-                                    .testTag("dictate_button")
-                            ) {
-                                Icon(
-                                    imageVector = if (voiceState.isListening) Icons.Default.Stop else Icons.Default.Mic,
-                                    contentDescription = if (voiceState.isListening) "Kaydı Durdur" else "Sesle Yazdır",
-                                    tint = if (voiceState.isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-
-                            // Text Instructions helper
-                            Box(
-                                modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "Konuştuğunuz kelimeler imlecin olduğu yere otomatik eklenir.",
-                                    fontSize = 10.sp,
-                                    lineHeight = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.width(120.dp)
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 

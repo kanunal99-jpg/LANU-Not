@@ -14,7 +14,7 @@ object DocumentShareHelper {
             when (extension.lowercase()) {
                 ".pdf" -> PdfGenerator.generateNotePdf(context, note)
                 ".xlsx" -> ExcelGenerator.generateNotesExcel(context, listOf(note))
-                // ".pptx" -> PowerPointGenerator.generateNotesPresentation(context, listOf(note))
+                ".pptx" -> PowerPointGenerator.generateNotesPresentation(context, listOf(note))
                 ".txt" -> {
                     val cleanTitle = note.title.ifBlank { "isimsiz_not" }
                         .replace("[\\\\/:*?\"<>|\\s]".toRegex(), "_")
@@ -56,12 +56,12 @@ object DocumentShareHelper {
                 file
             )
 
-            // Using ACTION_SEND with message/rfc822 and selector strictly filters to Email apps
             val emailIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "message/rfc822"
                 putExtra(Intent.EXTRA_SUBJECT, "LANU Not Defteri - Paylaşılan Belge: ${note.title}")
                 putExtra(Intent.EXTRA_TEXT, "Merhaba,\n\nLANU Sesli Not Defteri uygulamasından ekteki '${note.title}' başlıklı belge (${extension.uppercase()}) sizinle paylaşıldı.\n\nİyi günler dileriz.")
                 putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 
@@ -73,7 +73,6 @@ object DocumentShareHelper {
             context.startActivity(Intent.createChooser(emailIntent, "E-posta ile Paylaş"))
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback to standard share
             shareGeneric(context, note, extension)
         }
     }
@@ -92,7 +91,7 @@ object DocumentShareHelper {
             val mimeType = when (extension.lowercase()) {
                 ".pdf" -> "application/pdf"
                 ".xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                // ".pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                ".pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 ".txt" -> "text/plain"
                 ".json" -> "application/json"
                 else -> "*/*"
@@ -102,13 +101,13 @@ object DocumentShareHelper {
                 type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_TEXT, "LANU Not Defteri ile paylaşıldı: ${note.title}")
+                clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 
             context.startActivity(Intent.createChooser(msgIntent, "Mesajlaşma ile Paylaş"))
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback to standard share
             shareGeneric(context, note, extension)
         }
     }
@@ -117,7 +116,7 @@ object DocumentShareHelper {
         when (extension.lowercase()) {
             ".pdf" -> shareAsPdfFile(context, note)
             ".xlsx" -> shareExcelFile(context, listOf(note))
-            // ".pptx" -> sharePowerPointFile(context, note)
+            ".pptx" -> sharePowerPointFile(context, note)
             ".txt" -> shareAsTextFile(context, note)
             ".json" -> shareAsJsonFile(context, note)
         }
@@ -135,7 +134,6 @@ object DocumentShareHelper {
 
     fun shareAsTextFile(context: Context, note: Note) {
         try {
-            // Clean filename from illegal characters
             val cleanTitle = note.title.ifBlank { "isimsiz_not" }
                 .replace("[\\\\/:*?\"<>|\\s]".toRegex(), "_")
             val fileName = "${cleanTitle}.txt"
@@ -152,6 +150,7 @@ object DocumentShareHelper {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(intent, "Metin Belgesini Paylaş"))
@@ -186,6 +185,7 @@ object DocumentShareHelper {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/json"
                 putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(intent, "JSON Belgesini Paylaş"))
@@ -207,6 +207,7 @@ object DocumentShareHelper {
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/pdf"
                     putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 context.startActivity(Intent.createChooser(intent, "PDF Belgesini Paylaş"))
@@ -230,6 +231,7 @@ object DocumentShareHelper {
                     type = "application/pdf"
                     putExtra(Intent.EXTRA_STREAM, uri)
                     putExtra(Intent.EXTRA_SUBJECT, "LANU Not Defteri — Not Arşivi (${notes.size} Not)")
+                    clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 context.startActivity(Intent.createChooser(intent, "Toplu PDF Arşivini Paylaş"))
@@ -252,6 +254,7 @@ object DocumentShareHelper {
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 context.startActivity(Intent.createChooser(intent, "Excel Raporunu Paylaş"))
@@ -261,7 +264,6 @@ object DocumentShareHelper {
         }
     }
 
-    /*
     fun sharePowerPointFile(context: Context, note: Note) {
         sharePowerPointFile(context, listOf(note))
     }
@@ -279,6 +281,7 @@ object DocumentShareHelper {
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
                     putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = android.content.ClipData.newUri(context.contentResolver, "File", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 context.startActivity(Intent.createChooser(intent, "Sunum Dosyasını Paylaş"))
@@ -287,5 +290,4 @@ object DocumentShareHelper {
             e.printStackTrace()
         }
     }
-    */
 }
