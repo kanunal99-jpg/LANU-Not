@@ -67,6 +67,18 @@ jobs:
           echo "apk_path=$NORMALIZED_APK" >> "$GITHUB_OUTPUT"
           ls -lh "$NORMALIZED_APK"
 
+      - name: Verify APK signature and alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="${{ steps.apk.outputs.apk_path }}"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
+          test -x "$APKSIGNER"
+          test -x "$ZIPALIGN"
+          "$APKSIGNER" verify --verbose "$APK"
+          "$ZIPALIGN" -c -v 4 "$APK"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
