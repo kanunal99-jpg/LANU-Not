@@ -30,6 +30,7 @@ android {
             // TODO: migrate to a protected release keystore via GitHub Actions secrets
             // before shipping upgrade-sensitive production builds.
             signingConfig = signingConfigs.getByName("debug")
+            // CI smoke-test trigger: release APK must be signed and installable.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
