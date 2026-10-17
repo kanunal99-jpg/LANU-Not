@@ -329,41 +329,14 @@ class FirestoreSyncManager(
             NoteSyncConflictGuard.requireUniqueRemoteIds(remoteNotes)
             val remoteNotesMap = remoteNotes.associateBy { it.id }
 
-            // 2. Fetch local notes
-            val localNotes = repository.getAllNotesList()
-            // createdAt is not an edit timestamp. Never pick either side by
-            // creation date when the same note ID has different data.
-            NoteSyncConflictGuard.requireNoConflicts(
-                repository.getAllNotesIncludingTrashList(), remoteNotesMap.values.toList()
-            )
-            val localNotesMap = localNotes.associateBy { it.id }
-
-            var downloadedCount = 0
-            var uploadedCount = 0
-
-            val notesToInsertLocally = mutableListOf<Note>()
-            val notesToUpload = mutableListOf<Note>()
-
-            // Notes in remote but not local -> download
-            for ((id, remoteNote) in remoteNotesMap) {
-                val localNote = localNotesMap[id]
-                if (localNote == null) {
-                    notesToInsertLocally.add(remoteNote)
-                    downloadedCount++
-                } else if (remoteNote.createdAt > localNote.createdAt) {
-                    notesToInsertLocally.add(remoteNote)
-                    downloadedCount++
-                }
-            }
-
-            // Notes in local but not remote or newer locally -> upload
-            for ((id, localNote) in localNotesMap) {
-                val remoteNote = remoteNotesMap[id]
-                if (remoteNote == null || localNote.createdAt >= remoteNote.createdAt) {
-                    notesToUpload.add(localNote)
-                    if (remoteNote == null) uploadedCount++
-                }
-            }
+            // 2. Compare FULL snapshots, including soft-deleted/trash notes.
+            // createdAt is never used as a revision or conflict winner.
+            val localNotes = repository.getAllNotesIncludingTrashList()
+            val plan = NoteTwoWaySyncPlanner.plan(localNotes, remoteNotes)
+            val notesToInsertLocally = plan.download
+            val notesToUpload = plan.upload
+            val downloadedCount = notesToInsertLocally.size
+            val uploadedCount = notesToUpload.size
 
             // Apply local changes
             if (notesToInsertLocally.isNotEmpty()) {
