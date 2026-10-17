@@ -44,13 +44,36 @@ class CloudNoteTrashFieldsTest {
     }
 
     @Test
-    fun zeroOrInvalidDeletedTimestampDoesNotInventDeletionDate() {
+    fun zeroDeletedTimestampDoesNotInventDeletionDate() {
         assertEquals(null, CloudNoteTrashFields.decode(mapOf("deletedTimestamp" to 0L)).deletedTimestamp)
-        val malformed = CloudNoteTrashFields.decode(
-            mapOf("isDeleted" to true, "deletedTimestamp" to "invalid")
+    }
+
+    @Test
+    fun invalidOrContradictoryTrashFieldsCannotResurrectNotes() {
+        val invalidCloudRecords = listOf(
+            mapOf<String, Any?>("isDeleted" to "true", "deletedTimestamp" to 123L),
+            mapOf<String, Any?>("isDeleted" to true, "deletedTimestamp" to "invalid"),
+            mapOf<String, Any?>("isDeleted" to true, "deletedTimestamp" to 0L),
+            mapOf<String, Any?>("isDeleted" to false, "deletedTimestamp" to 123L),
+            mapOf<String, Any?>("isDeleted" to true, "deletedTimestamp" to -5L),
+            mapOf<String, Any?>("isDeleted" to true, "deletedTimestamp" to 3.4),
+            mapOf<String, Any?>("isDeleted" to true, "deletedTimestamp" to Double.NaN)
         )
-        assertEquals(true, malformed.isDeleted)
-        assertEquals(null, malformed.deletedTimestamp)
+        invalidCloudRecords.forEach { fields ->
+            try {
+                CloudNoteTrashFields.decode(fields)
+                org.junit.Assert.fail("A malformed cloud trash record must fail closed: $fields")
+            } catch (expected: IllegalStateException) {
+                assertTrue(expected.message.orEmpty().contains("bulut", ignoreCase = true))
+            }
+        }
+    }
+
+    @Test
+    fun legacyDeletedNoteWithoutTimestampRetainsDeletedFlag() {
+        val legacy = CloudNoteTrashFields.decode(mapOf("isDeleted" to true))
+        assertEquals(true, legacy.isDeleted)
+        assertEquals(null, legacy.deletedTimestamp)
     }
 
     @Test
