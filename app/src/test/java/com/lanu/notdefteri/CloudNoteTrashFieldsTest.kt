@@ -24,6 +24,36 @@ class CloudNoteTrashFieldsTest {
     }
 
     @Test
+    fun cloudTrashMetadataRoundTripsOnDeleteAndRestore() {
+        val deleted = CloudNoteTrashFields.decode(
+            CloudNoteTrashFields.encode(note.copy(isDeleted = true, deletedTimestamp = 7500L))
+        )
+        assertEquals(true, deleted.isDeleted)
+        assertEquals(7500L, deleted.deletedTimestamp)
+
+        val restored = CloudNoteTrashFields.decode(CloudNoteTrashFields.encode(note))
+        assertEquals(false, restored.isDeleted)
+        assertEquals(null, restored.deletedTimestamp)
+    }
+
+    @Test
+    fun legacyBackupsWithoutTrashFieldsRemainReadable() {
+        val old = CloudNoteTrashFields.decode(mapOf("id" to 19, "title" to "Old"))
+        assertEquals(false, old.isDeleted)
+        assertEquals(null, old.deletedTimestamp)
+    }
+
+    @Test
+    fun zeroOrInvalidDeletedTimestampDoesNotInventDeletionDate() {
+        assertEquals(null, CloudNoteTrashFields.decode(mapOf("deletedTimestamp" to 0L)).deletedTimestamp)
+        val malformed = CloudNoteTrashFields.decode(
+            mapOf("isDeleted" to true, "deletedTimestamp" to "invalid")
+        )
+        assertEquals(true, malformed.isDeleted)
+        assertEquals(null, malformed.deletedTimestamp)
+    }
+
+    @Test
     fun cloudTrashMetadataContainsNoPrivateNoteText() {
         val fields = CloudNoteTrashFields.encode(note.copy(content = "Çok özel bilgi"))
         assertTrue(fields.keys == setOf("isDeleted", "deletedTimestamp"))
