@@ -24,6 +24,8 @@ class NoteRepository(
 
     suspend fun getAllNotesList(): List<Note> = noteDao.getAllNotesList()
 
+    suspend fun getAllNotesIncludingTrashList(): List<Note> = noteDao.getAllNotesIncludingTrashList()
+
     suspend fun insertNote(note: Note): Long = noteDao.insertNote(note)
 
     suspend fun insertNotes(notes: List<Note>) = noteDao.insertNotes(notes)

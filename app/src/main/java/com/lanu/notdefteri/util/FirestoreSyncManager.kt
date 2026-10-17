@@ -195,6 +195,14 @@ class FirestoreSyncManager(
             val syncId = _state.value.syncId
             val localNotes = repository.getAllNotesList()
 
+            // A backup must never silently replace a different note in the vault.
+            val existingCloudNotes = db.collection("sync_vault")
+                .document(syncId).collection("notes").get().awaitTask()
+                .documents.mapNotNull { mapDocumentToNote(it) }
+            NoteSyncConflictGuard.requireNoConflicts(
+                repository.getAllNotesIncludingTrashList(), existingCloudNotes
+            )
+
             val batch = db.batch()
             val vaultRef = db.collection("sync_vault").document(syncId)
 
@@ -270,6 +278,11 @@ class FirestoreSyncManager(
                 }
             }
 
+            // Room REPLACE would overwrite a changed local note (including trash).
+            // Fail before ANY local write when a note ID has diverged.
+            NoteSyncConflictGuard.requireNoConflicts(
+                repository.getAllNotesIncludingTrashList(), restoredNotes
+            )
             if (restoredNotes.isNotEmpty()) {
                 repository.insertNotes(restoredNotes)
             }
@@ -322,6 +335,11 @@ class FirestoreSyncManager(
 
             // 2. Fetch local notes
             val localNotes = repository.getAllNotesList()
+            // createdAt is not an edit timestamp. Never pick either side by
+            // creation date when the same note ID has different data.
+            NoteSyncConflictGuard.requireNoConflicts(
+                repository.getAllNotesIncludingTrashList(), remoteNotesMap.values.toList()
+            )
             val localNotesMap = localNotes.associateBy { it.id }
 
             var downloadedCount = 0

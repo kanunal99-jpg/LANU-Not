@@ -53,6 +53,10 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE isDeleted = 0 ORDER BY isPinned DESC, createdAt DESC")
     suspend fun getAllNotesList(): List<Note>
 
+    // Include trashed records when checking for ID conflicts before a restore.
+    @Query("SELECT * FROM notes")
+    suspend fun getAllNotesIncludingTrashList(): List<Note>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: Note): Long
 
