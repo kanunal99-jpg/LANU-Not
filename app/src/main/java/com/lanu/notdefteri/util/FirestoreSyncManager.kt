@@ -198,7 +198,11 @@ class FirestoreSyncManager(
             // A backup must never silently replace a different note in the vault.
             val existingCloudNotes = db.collection("sync_vault")
                 .document(syncId).collection("notes").get().awaitTask()
-                .documents.mapNotNull { mapDocumentToNote(it) }
+                .documents.map { document ->
+                    mapDocumentToNote(document) ?: throw IllegalStateException(
+                        "Buluttaki not kaydı okunamadı; sessizce atlanmadı."
+                    )
+                }
             NoteSyncConflictGuard.requireNoConflicts(
                 repository.getAllNotesIncludingTrashList(), existingCloudNotes
             )
@@ -270,13 +274,12 @@ class FirestoreSyncManager(
                 .get()
                 .awaitTask()
 
-            val restoredNotes = mutableListOf<Note>()
-            for (doc in snapshot.documents) {
-                val note = mapDocumentToNote(doc)
-                if (note != null) {
-                    restoredNotes.add(note)
-                }
+            val restoredNotes = snapshot.documents.map { doc ->
+                mapDocumentToNote(doc) ?: throw IllegalStateException(
+                    "Buluttaki not kaydı okunamadı; geri yükleme durduruldu."
+                )
             }
+            NoteSyncConflictGuard.requireUniqueRemoteIds(restoredNotes)
 
             // Room REPLACE would overwrite a changed local note (including trash).
             // Fail before ANY local write when a note ID has diverged.
@@ -325,13 +328,15 @@ class FirestoreSyncManager(
                 .get()
                 .awaitTask()
 
-            val remoteNotesMap = mutableMapOf<Int, Note>()
-            for (doc in snapshot.documents) {
-                val note = mapDocumentToNote(doc)
-                if (note != null) {
-                    remoteNotesMap[note.id] = note
-                }
+            val remoteNotes = snapshot.documents.map { doc ->
+                mapDocumentToNote(doc) ?: throw IllegalStateException(
+                    "Buluttaki not kaydı okunamadı; eşitleme durduruldu."
+                )
             }
+            // Validate before associateBy; map construction would silently
+            // discard the first of two cloud documents claiming the same ID.
+            NoteSyncConflictGuard.requireUniqueRemoteIds(remoteNotes)
+            val remoteNotesMap = remoteNotes.associateBy { it.id }
 
             // 2. Fetch local notes
             val localNotes = repository.getAllNotesList()
