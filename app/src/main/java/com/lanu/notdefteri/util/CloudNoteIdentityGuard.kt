@@ -28,7 +28,7 @@ object CloudNoteIdentityGuard {
     fun validatedCreatedAt(raw: Any?): Long {
         val number = raw as? Number
         val createdAt = number?.toLong()
-        if (createdAt == null || createdAt <= 0L ||
+        if (number == null || createdAt == null || createdAt <= 0L ||
             number.toDouble() != createdAt.toDouble()) {
             throw IllegalStateException(
                 "Bulut notunun oluşturulma tarihi geçersiz. Not değiştirilmedi."
