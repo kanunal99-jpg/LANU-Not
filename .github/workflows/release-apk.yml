@@ -79,11 +79,22 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           "$ZIPALIGN" -c -v 4 "$APK"
 
+      - name: Generate and verify APK SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="${{ steps.apk.outputs.apk_path }}"
+          cd "$(dirname "$APK")"
+          sha256sum "$(basename "$APK")" > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: LANU-Not-Defteri-v1.0.${{ github.run_number }}
-          path: ${{ steps.apk.outputs.apk_path }}
+          path: |
+            ${{ steps.apk.outputs.apk_path }}
+            app/build/outputs/apk/release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -95,4 +106,6 @@ jobs:
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           make_latest: true
-          files: ${{ steps.apk.outputs.apk_path }}
+          files: |
+            ${{ steps.apk.outputs.apk_path }}
+            app/build/outputs/apk/release/SHA256SUMS.txt
