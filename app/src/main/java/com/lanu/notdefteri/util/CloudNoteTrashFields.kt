@@ -8,6 +8,14 @@ import com.lanu.notdefteri.data.model.Note
  * are overwritten when a user restores a note.
  */
 object CloudNoteTrashFields {
+    data class TrashState(val isDeleted: Boolean, val deletedTimestamp: Long?)
+
+    /** Old backups did not have trash fields; treat them as active notes. */
+    fun decode(data: Map<String, Any?>): TrashState = TrashState(
+        isDeleted = data["isDeleted"] as? Boolean ?: false,
+        deletedTimestamp = (data["deletedTimestamp"] as? Number)?.toLong()?.takeIf { it > 0L }
+    )
+
     fun encode(note: Note): Map<String, Any> = mapOf(
         "isDeleted" to note.isDeleted,
         "deletedTimestamp" to (note.deletedTimestamp ?: 0L)
