@@ -222,7 +222,7 @@ class FirestoreSyncManager(
             val notesCollection = vaultRef.collection("notes")
             for (note in localNotes) {
                 val noteDoc = notesCollection.document(note.id.toString())
-                val noteData = hashMapOf(
+                val noteData = hashMapOf<String, Any>(
                     "id" to note.id,
                     "title" to note.title,
                     "content" to note.content,
@@ -233,6 +233,7 @@ class FirestoreSyncManager(
                     "imagePath" to (note.imagePath ?: ""),
                     "reminderTime" to (note.reminderTime ?: 0L)
                 )
+                noteData.putAll(CloudNoteTrashFields.encode(note))
                 batch.set(noteDoc, noteData, SetOptions.merge())
             }
 
@@ -385,7 +386,7 @@ class FirestoreSyncManager(
                 val notesColl = db.collection("sync_vault").document(syncId).collection("notes")
                 for (note in notesToUpload) {
                     val docRef = notesColl.document(note.id.toString())
-                    val noteData = hashMapOf(
+                    val noteData = hashMapOf<String, Any>(
                         "id" to note.id,
                         "title" to note.title,
                         "content" to note.content,
@@ -403,6 +404,7 @@ class FirestoreSyncManager(
                         "folder" to (note.folder ?: ""),
                         "drawingPath" to (note.drawingPath ?: "")
                     )
+                    noteData.putAll(CloudNoteTrashFields.encode(note))
                     batch.set(docRef, noteData, SetOptions.merge())
                 }
                 batch.commit().awaitTask()
@@ -447,7 +449,7 @@ class FirestoreSyncManager(
             try {
                 val db = initializeFirestore() ?: return@launch
                 val syncId = _state.value.syncId
-                val noteData = hashMapOf(
+                val noteData = hashMapOf<String, Any>(
                     "id" to note.id,
                     "title" to note.title,
                     "content" to note.content,
@@ -465,6 +467,7 @@ class FirestoreSyncManager(
                     "folder" to (note.folder ?: ""),
                     "drawingPath" to (note.drawingPath ?: "")
                 )
+                noteData.putAll(CloudNoteTrashFields.encode(note))
                 db.collection("sync_vault")
                     .document(syncId)
                     .collection("notes")
@@ -542,6 +545,8 @@ class FirestoreSyncManager(
         val longitude = (data["longitude"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
         val locationName = (data["locationName"] as? String)?.ifBlank { null }
         val audioPath = (data["audioPath"] as? String)?.ifBlank { null }
+        val isDeleted = data["isDeleted"] as? Boolean ?: false
+        val deletedTimestamp = (data["deletedTimestamp"] as? Number)?.toLong()?.takeIf { it > 0L }
         val isLocked = data["isLocked"] as? Boolean ?: false
         val folder = (data["folder"] as? String)?.ifBlank { null }
         val drawingPath = (data["drawingPath"] as? String)?.ifBlank { null }
@@ -559,6 +564,8 @@ class FirestoreSyncManager(
             longitude = longitude,
             locationName = locationName,
             audioPath = audioPath,
+            isDeleted = isDeleted,
+            deletedTimestamp = deletedTimestamp,
             isLocked = isLocked,
             folder = folder,
             drawingPath = drawingPath
