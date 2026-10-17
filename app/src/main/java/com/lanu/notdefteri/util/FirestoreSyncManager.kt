@@ -222,7 +222,7 @@ class FirestoreSyncManager(
             val notesCollection = vaultRef.collection("notes")
             for (note in localNotes) {
                 val noteDoc = notesCollection.document(note.id.toString())
-                val noteData = hashMapOf(
+                val noteData = hashMapOf<String, Any>(
                     "id" to note.id,
                     "title" to note.title,
                     "content" to note.content,
@@ -386,7 +386,7 @@ class FirestoreSyncManager(
                 val notesColl = db.collection("sync_vault").document(syncId).collection("notes")
                 for (note in notesToUpload) {
                     val docRef = notesColl.document(note.id.toString())
-                    val noteData = hashMapOf(
+                    val noteData = hashMapOf<String, Any>(
                         "id" to note.id,
                         "title" to note.title,
                         "content" to note.content,
@@ -449,7 +449,7 @@ class FirestoreSyncManager(
             try {
                 val db = initializeFirestore() ?: return@launch
                 val syncId = _state.value.syncId
-                val noteData = hashMapOf(
+                val noteData = hashMapOf<String, Any>(
                     "id" to note.id,
                     "title" to note.title,
                     "content" to note.content,
