@@ -26,6 +26,7 @@ import com.lanu.notdefteri.util.VoiceToTextParser
 import com.lanu.notdefteri.util.TextToSpeechHelper
 import com.lanu.notdefteri.util.ThemePreferencesManager
 import com.lanu.notdefteri.util.FirestoreSyncManager
+import com.lanu.notdefteri.util.NoteEditIntegrity
 import com.lanu.notdefteri.util.SyncResult
 import com.lanu.notdefteri.widget.NotesWidgetProvider
 import com.lanu.notdefteri.ai.GeminiHelper
@@ -269,7 +270,10 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
         folder: String? = null,
         drawingPath: String? = null
     ): Int {
-        val note = Note(
+        val previous = if (id > 0) repository.getNoteById(id) else null
+        // Never silently create a phantom ID after a note was deleted, and
+        // never replace the original createdAt while editing an existing note.
+        val note = NoteEditIntegrity.prepareForSave(Note(
             id = id,
             title = title.ifBlank { "Başlıksız Not" },
             content = content,
@@ -284,8 +288,8 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
             isLocked = isLocked,
             folder = folder,
             drawingPath = drawingPath
-        )
-        
+        ), previous)
+
         val resultId = repository.updateNoteWithTags(note, tagIds).toInt()
         
         // Let's re-fetch the note to be sure we have the right object for sync
