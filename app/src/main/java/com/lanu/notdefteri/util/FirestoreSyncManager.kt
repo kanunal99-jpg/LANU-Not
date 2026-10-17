@@ -208,26 +208,29 @@ class FirestoreSyncManager(
                 repository.getAllNotesIncludingTrashList(), existingCloudNotes
             )
 
-            val batch = db.batch()
             val vaultRef = db.collection("sync_vault").document(syncId)
+            val notesCollection = vaultRef.collection("notes")
 
-            // Update metadata
+            // A single Firestore batch cannot contain 500+ writes.
+            // On a mid-upload failure, already written note documents remain
+            // intact; the completion timestamp is NOT updated.
+            for (chunk in CloudBatchWritePlanner.partition(localNotes)) {
+                val batch = db.batch()
+                for (note in chunk) {
+                    val noteDoc = notesCollection.document(note.id.toString())
+                    batch.set(noteDoc, CloudNotePayload.encode(note, System.currentTimeMillis()), SetOptions.merge())
+                }
+                batch.commit().awaitTask()
+            }
+
+            // Completion metadata is committed ONLY after every note batch
+            // succeeded, including when there are no notes to back up.
             val meta = hashMapOf(
                 "lastSyncTime" to System.currentTimeMillis(),
                 "deviceModel" to "${Build.MANUFACTURER} ${Build.MODEL}",
                 "notesCount" to localNotes.size
             )
-            batch.set(vaultRef, meta, SetOptions.merge())
-
-            // Upload each note
-            val notesCollection = vaultRef.collection("notes")
-            for (note in localNotes) {
-                val noteDoc = notesCollection.document(note.id.toString())
-                val noteData = CloudNotePayload.encode(note, System.currentTimeMillis())
-                batch.set(noteDoc, noteData, SetOptions.merge())
-            }
-
-            batch.commit().awaitTask()
+            vaultRef.set(meta, SetOptions.merge()).awaitTask()
 
             val now = System.currentTimeMillis()
             prefs.edit().putLong("last_sync_time", now).apply()
@@ -345,14 +348,15 @@ class FirestoreSyncManager(
 
             // Apply remote changes
             if (notesToUpload.isNotEmpty()) {
-                val batch = db.batch()
                 val notesColl = db.collection("sync_vault").document(syncId).collection("notes")
-                for (note in notesToUpload) {
-                    val docRef = notesColl.document(note.id.toString())
-                    val noteData = CloudNotePayload.encode(note, System.currentTimeMillis())
-                    batch.set(docRef, noteData, SetOptions.merge())
+                for (chunk in CloudBatchWritePlanner.partition(notesToUpload)) {
+                    val batch = db.batch()
+                    for (note in chunk) {
+                        val docRef = notesColl.document(note.id.toString())
+                        batch.set(docRef, CloudNotePayload.encode(note, System.currentTimeMillis()), SetOptions.merge())
+                    }
+                    batch.commit().awaitTask()
                 }
-                batch.commit().awaitTask()
             }
 
             val now = System.currentTimeMillis()
