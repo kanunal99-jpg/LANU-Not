@@ -552,8 +552,7 @@ class FirestoreSyncManager(
         val longitude = (data["longitude"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
         val locationName = (data["locationName"] as? String)?.ifBlank { null }
         val audioPath = (data["audioPath"] as? String)?.ifBlank { null }
-        val isDeleted = data["isDeleted"] as? Boolean ?: false
-        val deletedTimestamp = (data["deletedTimestamp"] as? Number)?.toLong()?.takeIf { it > 0L }
+        val trash = CloudNoteTrashFields.decode(data)
         val isLocked = data["isLocked"] as? Boolean ?: false
         val folder = (data["folder"] as? String)?.ifBlank { null }
         val drawingPath = (data["drawingPath"] as? String)?.ifBlank { null }
@@ -571,8 +570,8 @@ class FirestoreSyncManager(
             longitude = longitude,
             locationName = locationName,
             audioPath = audioPath,
-            isDeleted = isDeleted,
-            deletedTimestamp = deletedTimestamp,
+            isDeleted = trash.isDeleted,
+            deletedTimestamp = trash.deletedTimestamp,
             isLocked = isLocked,
             folder = folder,
             drawingPath = drawingPath
