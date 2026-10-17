@@ -11,6 +11,7 @@ on:
       - 'settings.gradle.kts'
       - 'gradle.properties'
       - 'metadata.json'
+      - '.github/workflows/release-apk.yml'
   workflow_dispatch:
 
 permissions:
