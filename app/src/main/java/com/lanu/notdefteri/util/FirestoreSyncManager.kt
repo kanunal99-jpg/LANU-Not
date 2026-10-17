@@ -193,7 +193,7 @@ class FirestoreSyncManager(
         return try {
             val db = initializeFirestore() ?: throw IllegalStateException("Firestore servisi kullanılamıyor.")
             val syncId = _state.value.syncId
-            val localNotes = repository.getAllNotesList()
+            val localNotes = repository.getAllNotesIncludingTrashList()
 
             // A backup must never silently replace a different note in the vault.
             val existingCloudNotes = db.collection("sync_vault")
@@ -231,7 +231,14 @@ class FirestoreSyncManager(
                     "isPinned" to note.isPinned,
                     "tag" to (note.tag ?: ""),
                     "imagePath" to (note.imagePath ?: ""),
-                    "reminderTime" to (note.reminderTime ?: 0L)
+                    "reminderTime" to (note.reminderTime ?: 0L),
+                    "latitude" to (note.latitude ?: 0.0),
+                    "longitude" to (note.longitude ?: 0.0),
+                    "locationName" to (note.locationName ?: ""),
+                    "audioPath" to (note.audioPath ?: ""),
+                    "isLocked" to note.isLocked,
+                    "folder" to (note.folder ?: ""),
+                    "drawingPath" to (note.drawingPath ?: "")
                 )
                 noteData.putAll(CloudNoteTrashFields.encode(note))
                 batch.set(noteDoc, noteData, SetOptions.merge())
@@ -340,7 +347,7 @@ class FirestoreSyncManager(
             val remoteNotesMap = remoteNotes.associateBy { it.id }
 
             // 2. Fetch local notes
-            val localNotes = repository.getAllNotesList()
+            val localNotes = repository.getAllNotesIncludingTrashList()
             // createdAt is not an edit timestamp. Never pick either side by
             // creation date when the same note ID has different data.
             NoteSyncConflictGuard.requireNoConflicts(
