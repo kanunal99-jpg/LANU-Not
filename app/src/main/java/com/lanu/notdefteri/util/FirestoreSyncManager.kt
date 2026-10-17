@@ -476,6 +476,12 @@ class FirestoreSyncManager(
                     .awaitTask()
             } catch (e: Exception) {
                 e.printStackTrace()
+                updateSyncState {
+                    it.copy(
+                        error = "Otomatik bulut yüklemesi başarısız (not ${note.id}, ${e.javaClass.simpleName}). Yerel kopya korunuyor.",
+                        statusMessage = null
+                    )
+                }
             }
         }
     }
@@ -494,6 +500,12 @@ class FirestoreSyncManager(
                     .awaitTask()
             } catch (e: Exception) {
                 e.printStackTrace()
+                updateSyncState {
+                    it.copy(
+                        error = "Buluttan otomatik silme başarısız (not $noteId, ${e.javaClass.simpleName}). Bulut kopyası korunmuş olabilir.",
+                        statusMessage = null
+                    )
+                }
             }
         }
     }
@@ -508,6 +520,12 @@ class FirestoreSyncManager(
                 .collection("notes")
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {
+                        updateSyncState {
+                            it.copy(
+                                error = "Canlı bulut dinleyicisi başarısız (${error.javaClass.simpleName}). Bağlantı ve Firebase ayarlarını kontrol edin.",
+                                statusMessage = null
+                            )
+                        }
                         return@addSnapshotListener
                     }
                     if (snapshot != null) {
@@ -516,6 +534,12 @@ class FirestoreSyncManager(
                 }
         } catch (e: Exception) {
             e.printStackTrace()
+            updateSyncState {
+                it.copy(
+                    error = "Bulut dinleyicisi başlatılamadı (${e.javaClass.simpleName}).",
+                    statusMessage = null
+                )
+            }
         }
     }
 
