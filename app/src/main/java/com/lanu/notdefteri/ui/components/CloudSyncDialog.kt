@@ -529,6 +529,16 @@ fun CloudSyncDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Önemli: Bulut yedeği not metnini ve medya dosyalarının yollarını saklar; fotoğraf, ses ve çizim dosyalarını yüklemez. Cihaz değiştirirken bu dosyaları ayrıca yedekleyin.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().testTag("cloud_media_backup_notice")
+                )
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Collapsible Advanced Settings (Custom Project ID)
