@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -68,7 +67,7 @@ class FirestoreSyncManager(
     private val scope = CoroutineScope(Dispatchers.IO)
 
     init {
-        val savedSyncId = prefs.getString("sync_id", null) ?: generateNewSyncId().also {
+        val savedSyncId = prefs.getString("sync_id", null) ?: CloudSyncId.generate().also {
             prefs.edit().putString("sync_id", it).apply()
         }
         val autoSync = prefs.getBoolean("auto_sync", true)
@@ -120,11 +119,6 @@ class FirestoreSyncManager(
             val newStatus = calculateSyncStatus(updated.isSyncing, updated.isOnline, updated.error)
             updated.copy(syncStatus = newStatus)
         }
-    }
-
-    private fun generateNewSyncId(): String {
-        val randomPart = UUID.randomUUID().toString().take(8).uppercase()
-        return "LANU-$randomPart"
     }
 
     fun setSyncId(newSyncId: String) {
