@@ -488,10 +488,12 @@ class FirestoreSyncManager(
 
     private fun mapDocumentToNote(doc: DocumentSnapshot): Note? {
         val data = doc.data ?: return null
-        val id = (data["id"] as? Number)?.toInt() ?: doc.id.toIntOrNull() ?: return null
+        // Do not trust the payload ID over the Firestore document path.
+        // Never invent a current timestamp for malformed legacy cloud data.
+        val id = CloudNoteIdentityGuard.validatedId(doc.id, data["id"])
         val title = data["title"] as? String ?: ""
         val content = data["content"] as? String ?: ""
-        val createdAt = (data["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+        val createdAt = CloudNoteIdentityGuard.validatedCreatedAt(data["createdAt"])
         val isPinned = data["isPinned"] as? Boolean ?: false
         val tag = (data["tag"] as? String)?.ifBlank { null }
         val imagePath = (data["imagePath"] as? String)?.ifBlank { null }
