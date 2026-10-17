@@ -16,6 +16,42 @@ class NoteSyncConflictGuardTest {
     )
 
     @Test
+    fun duplicateCloudIdsAreRejectedEvenWhenNotesLookIdentical() {
+        try {
+            NoteSyncConflictGuard.requireUniqueRemoteIds(listOf(original, original.copy()))
+            fail("Two cloud documents with the same logical ID must not be collapsed")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message.orEmpty().contains("17"))
+        }
+    }
+
+    @Test
+    fun duplicateCloudIdsAreRejectedBeforeLocalConflictChecks() {
+        try {
+            NoteSyncConflictGuard.requireNoConflicts(
+                emptyList(),
+                listOf(original, original.copy(content = "Başka bir bulut belgesi"))
+            )
+            fail("A duplicate ID cannot be silently chosen with associateBy")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message.orEmpty().contains("17"))
+        }
+    }
+
+    @Test
+    fun invalidCloudIdsFailClosedWithoutBlockingValidIds() {
+        for (badId in listOf(0, -8)) {
+            try {
+                NoteSyncConflictGuard.requireUniqueRemoteIds(listOf(original.copy(id = badId)))
+                fail("Invalid cloud ID should be rejected: $badId")
+            } catch (e: IllegalStateException) {
+                assertTrue(e.message.orEmpty().contains(badId.toString()))
+            }
+        }
+        NoteSyncConflictGuard.requireUniqueRemoteIds(listOf(original, original.copy(id = 18)))
+    }
+
+    @Test
     fun identicalSnapshotsCanSyncWithoutConflicts() {
         assertTrue(NoteSyncConflictGuard.conflictingIds(listOf(original), listOf(original.copy())).isEmpty())
         NoteSyncConflictGuard.requireNoConflicts(listOf(original), listOf(original.copy()))
