@@ -193,7 +193,8 @@ class FirestoreSyncManager(
         return try {
             val db = initializeFirestore() ?: throw IllegalStateException("Firestore servisi kullanılamıyor.")
             val syncId = _state.value.syncId
-            val localNotes = repository.getAllNotesList()
+            // A full backup must include trash records, not only active notes.
+            val localNotes = repository.getAllNotesIncludingTrashList()
 
             // A backup must never silently replace a different note in the vault.
             val existingCloudNotes = db.collection("sync_vault")
@@ -222,18 +223,7 @@ class FirestoreSyncManager(
             val notesCollection = vaultRef.collection("notes")
             for (note in localNotes) {
                 val noteDoc = notesCollection.document(note.id.toString())
-                val noteData = hashMapOf<String, Any>(
-                    "id" to note.id,
-                    "title" to note.title,
-                    "content" to note.content,
-                    "createdAt" to note.createdAt,
-                    "updatedAt" to System.currentTimeMillis(),
-                    "isPinned" to note.isPinned,
-                    "tag" to (note.tag ?: ""),
-                    "imagePath" to (note.imagePath ?: ""),
-                    "reminderTime" to (note.reminderTime ?: 0L)
-                )
-                noteData.putAll(CloudNoteTrashFields.encode(note))
+                val noteData = CloudNotePayload.encode(note, System.currentTimeMillis())
                 batch.set(noteDoc, noteData, SetOptions.merge())
             }
 
@@ -386,25 +376,7 @@ class FirestoreSyncManager(
                 val notesColl = db.collection("sync_vault").document(syncId).collection("notes")
                 for (note in notesToUpload) {
                     val docRef = notesColl.document(note.id.toString())
-                    val noteData = hashMapOf<String, Any>(
-                        "id" to note.id,
-                        "title" to note.title,
-                        "content" to note.content,
-                        "createdAt" to note.createdAt,
-                        "updatedAt" to System.currentTimeMillis(),
-                        "isPinned" to note.isPinned,
-                        "tag" to (note.tag ?: ""),
-                        "imagePath" to (note.imagePath ?: ""),
-                        "reminderTime" to (note.reminderTime ?: 0L),
-                        "latitude" to (note.latitude ?: 0.0),
-                        "longitude" to (note.longitude ?: 0.0),
-                        "locationName" to (note.locationName ?: ""),
-                        "audioPath" to (note.audioPath ?: ""),
-                        "isLocked" to note.isLocked,
-                        "folder" to (note.folder ?: ""),
-                        "drawingPath" to (note.drawingPath ?: "")
-                    )
-                    noteData.putAll(CloudNoteTrashFields.encode(note))
+                    val noteData = CloudNotePayload.encode(note, System.currentTimeMillis())
                     batch.set(docRef, noteData, SetOptions.merge())
                 }
                 batch.commit().awaitTask()
@@ -449,25 +421,7 @@ class FirestoreSyncManager(
             try {
                 val db = initializeFirestore() ?: return@launch
                 val syncId = _state.value.syncId
-                val noteData = hashMapOf<String, Any>(
-                    "id" to note.id,
-                    "title" to note.title,
-                    "content" to note.content,
-                    "createdAt" to note.createdAt,
-                    "updatedAt" to System.currentTimeMillis(),
-                    "isPinned" to note.isPinned,
-                    "tag" to (note.tag ?: ""),
-                    "imagePath" to (note.imagePath ?: ""),
-                    "reminderTime" to (note.reminderTime ?: 0L),
-                    "latitude" to (note.latitude ?: 0.0),
-                    "longitude" to (note.longitude ?: 0.0),
-                    "locationName" to (note.locationName ?: ""),
-                    "audioPath" to (note.audioPath ?: ""),
-                    "isLocked" to note.isLocked,
-                    "folder" to (note.folder ?: ""),
-                    "drawingPath" to (note.drawingPath ?: "")
-                )
-                noteData.putAll(CloudNoteTrashFields.encode(note))
+                val noteData = CloudNotePayload.encode(note, System.currentTimeMillis())
                 db.collection("sync_vault")
                     .document(syncId)
                     .collection("notes")
