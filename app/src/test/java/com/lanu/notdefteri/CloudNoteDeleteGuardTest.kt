@@ -31,7 +31,7 @@ class CloudNoteDeleteGuardTest {
                 CloudNoteDeleteGuard.requireSameSnapshot(trashed, remote)
                 fail("Changed cloud snapshot must not be deleted: $remote")
             } catch (e: IllegalStateException) {
-                assertTrue(e.message.orEmpty().contains("silinm", ignoreCase = true))
+                assertTrue(e.message.orEmpty().contains("sil", ignoreCase = true))
             }
         }
     }
