@@ -31,14 +31,14 @@ class CloudNoteNumericGuardTest {
         val payload = CloudNotePayload.encode(note, 123L)
         assertEquals(true, payload["hasLatitude"])
         assertEquals(true, payload["hasLongitude"])
-        assertEquals(0.0, CloudNoteNumericGuard.coordinate(payload, "latitude", "hasLatitude", 90.0)!!)
-        assertEquals(0.0, CloudNoteNumericGuard.coordinate(payload, "longitude", "hasLongitude", 180.0)!!)
+        assertEquals(0.0, CloudNoteNumericGuard.coordinate(payload, "latitude", "hasLatitude", 90.0)!!, 0.0)
+        assertEquals(0.0, CloudNoteNumericGuard.coordinate(payload, "longitude", "hasLongitude", 180.0)!!, 0.0)
     }
 
     @Test
     fun legacyZeroSentinelRemainsAbsentAndOtherCoordinatesRemainValid() {
         assertNull(CloudNoteNumericGuard.coordinate(mapOf("latitude" to 0.0), "latitude", "hasLatitude", 90.0))
-        assertEquals(40.9, CloudNoteNumericGuard.coordinate(mapOf("latitude" to 40.9), "latitude", "hasLatitude", 90.0)!!)
+        assertEquals(40.9, CloudNoteNumericGuard.coordinate(mapOf("latitude" to 40.9), "latitude", "hasLatitude", 90.0)!!, 0.0)
         val empty = CloudNotePayload.encode(Note(id = 9, title = "", content = ""), 123L)
         assertEquals(false, empty["hasLatitude"])
         assertNull(CloudNoteNumericGuard.coordinate(empty, "latitude", "hasLatitude", 90.0))
