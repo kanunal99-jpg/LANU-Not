@@ -416,6 +416,7 @@ class FirestoreSyncManager(
         val version = autoSyncWrites.markChanged(note.id)
         scope.launch {
             try {
+                var performedWrite = false
                 val written = autoSyncWrites.runIfLatest(note.id, version) {
                     if (!_state.value.isAutoSyncEnabled || _state.value.syncId != targetVault) {
                         return@runIfLatest
@@ -429,8 +430,9 @@ class FirestoreSyncManager(
                         .document(note.id.toString())
                         .set(noteData, SetOptions.merge())
                         .awaitTask()
+                    performedWrite = true
                 }
-                if (written && _state.value.syncId == targetVault) {
+                if (written && performedWrite && _state.value.syncId == targetVault) {
                     updateSyncState {
                         if (it.error?.startsWith("Otomatik bulut yüklemesi başarısız") == true)
                             it.copy(error = null, statusMessage = "Otomatik bulut kaydı yeniden başarılı.")
