@@ -15,7 +15,8 @@ android {
         applicationId = "com.aistudio.lanunotdefteri.abcxyz"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        // Each CI release has an increasing Android package version.
+        versionCode = providers.environmentVariable("LANU_VERSION_CODE").orNull?.toIntOrNull() ?: 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
