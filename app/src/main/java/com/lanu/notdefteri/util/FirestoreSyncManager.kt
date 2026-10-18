@@ -491,9 +491,9 @@ class FirestoreSyncManager(
         val isPinned = CloudNoteContentGuard.boolean(data, "isPinned")
         val tag = CloudNoteContentGuard.optionalText(data, "tag")
         val imagePath = CloudNoteContentGuard.optionalText(data, "imagePath")
-        val reminderTime = (data["reminderTime"] as? Number)?.toLong()?.takeIf { it > 0L }
-        val latitude = (data["latitude"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
-        val longitude = (data["longitude"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
+        val reminderTime = CloudNoteNumericGuard.reminderTime(data)
+        val latitude = CloudNoteNumericGuard.coordinate(data, "latitude", "hasLatitude", 90.0)
+        val longitude = CloudNoteNumericGuard.coordinate(data, "longitude", "hasLongitude", 180.0)
         val locationName = CloudNoteContentGuard.optionalText(data, "locationName")
         val audioPath = CloudNoteContentGuard.optionalText(data, "audioPath")
         val trash = CloudNoteTrashFields.decode(data)

@@ -50,7 +50,9 @@ class CloudNotePayloadTest {
         assertEquals(true, cloud["isLocked"])
         assertEquals("Arşiv", cloud["folder"])
         assertEquals("sketches/42.png", cloud["drawingPath"])
-        assertEquals(18, cloud.size)
+        assertEquals(true, cloud["hasLatitude"])
+        assertEquals(true, cloud["hasLongitude"])
+        assertEquals(20, cloud.size)
     }
 
     @Test
@@ -66,6 +68,8 @@ class CloudNotePayloadTest {
         assertEquals(0.0, cloud["latitude"])
         assertEquals(0.0, cloud["longitude"])
         assertEquals(false, cloud["isDeleted"])
+        assertEquals(false, cloud["hasLatitude"])
+        assertEquals(false, cloud["hasLongitude"])
         assertFalse(cloud.values.any { it == null })
     }
 
