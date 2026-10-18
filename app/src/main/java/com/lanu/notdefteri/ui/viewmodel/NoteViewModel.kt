@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit
 import com.lanu.notdefteri.util.VoiceToTextParser
 import com.lanu.notdefteri.util.TextToSpeechHelper
 import com.lanu.notdefteri.util.ThemePreferencesManager
+import com.lanu.notdefteri.util.CloudNoteDeleteGuard
 import com.lanu.notdefteri.util.FirestoreSyncManager
 import com.lanu.notdefteri.util.NoteEditIntegrity
 import com.lanu.notdefteri.util.SyncResult
@@ -358,14 +359,20 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             ReminderScheduler.cancelReminder(getApplication(), note.id)
             repository.deleteNote(note)
-            syncManager.onNoteDeleted(note.id)
+            syncManager.onNoteDeleted(note)
             updateWidgets()
         }
     }
 
     fun emptyTrash() {
         viewModelScope.launch {
+            // Capture the trashed snapshots before Room removes them. Without
+            // this, the cloud keeps the deleted notes and later restores them.
+            val toRemove = CloudNoteDeleteGuard.trashedNotesBeforePurge(
+                repository.getAllNotesIncludingTrashList()
+            )
             repository.emptyTrash()
+            toRemove.forEach(syncManager::onNoteDeleted)
             updateWidgets()
         }
     }
