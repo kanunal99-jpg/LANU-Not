@@ -24,6 +24,12 @@ class AutoSyncWriteSequencer {
         return nextVersion
     }
 
+    // Disabling auto sync or switching vaults invalidates queued operations.
+    @Synchronized
+    fun invalidatePending() {
+        latestVersions.clear()
+    }
+
     suspend fun runIfLatest(noteId: Int, version: Long, operation: suspend () -> Unit): Boolean {
         remoteWriteMutex.lock()
         try {
