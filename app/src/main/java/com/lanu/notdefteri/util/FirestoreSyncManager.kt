@@ -131,10 +131,16 @@ class FirestoreSyncManager(
             return // Keep the existing local setting and listener untouched.
         }
         if (normalized == _state.value.syncId) return
-        prefs.edit().putString("sync_id", normalized).apply()
-        updateSyncState {
-            it.copy(syncId = normalized, statusMessage = "Eşitleme Kimliği güncellendi: $normalized", error = null)
+        // Never switch the active vault midway through an upload/download.
+        // The in-flight result could otherwise be labeled as the NEW vault.
+        if (_state.value.isSyncing) {
+            updateSyncState { it.copy(error = "Eşitleme sürerken kasa kimliği değiştirilemez.", statusMessage = null) }
+            return
         }
+        // The last-sync timestamp is a property of the previous vault, not
+        // the newly selected one. Never claim the new vault was synchronized.
+        prefs.edit().putString("sync_id", normalized).remove("last_sync_time").apply()
+        updateSyncState { CloudVaultSwitchPolicy.reset(it, normalized) }
         restartRealtimeListener()
     }
 
