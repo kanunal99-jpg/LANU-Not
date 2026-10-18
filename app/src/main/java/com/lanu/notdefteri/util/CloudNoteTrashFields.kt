@@ -41,8 +41,21 @@ object CloudNoteTrashFields {
         return TrashState(isDeleted, deletedTimestamp)
     }
 
-    fun encode(note: Note): Map<String, Any> = mapOf(
-        "isDeleted" to note.isDeleted,
-        "deletedTimestamp" to (note.deletedTimestamp ?: 0L)
-    )
+    fun encode(note: Note): Map<String, Any> {
+        val timestamp = note.deletedTimestamp
+        if (note.isDeleted && (timestamp == null || timestamp <= 0L)) {
+            throw IllegalStateException(
+                "Çöp kutusundaki notun geçerli silinme tarihi yok; bozuk kayıt buluta yazılmadı."
+            )
+        }
+        if (!note.isDeleted && timestamp != null) {
+            throw IllegalStateException(
+                "Aktif notta silinme tarihi bulunuyor; çelişkili kayıt buluta yazılmadı."
+            )
+        }
+        return mapOf(
+            "isDeleted" to note.isDeleted,
+            "deletedTimestamp" to (timestamp ?: 0L)
+        )
+    }
 }

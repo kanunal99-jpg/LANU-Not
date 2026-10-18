@@ -77,6 +77,39 @@ class CloudNoteTrashFieldsTest {
     }
 
     @Test
+    fun encodingRefusesDeletedNotesWithoutARealDeletionTimestamp() {
+        for (invalid in listOf(null, 0L, -1L)) {
+            try {
+                CloudNoteTrashFields.encode(note.copy(isDeleted = true, deletedTimestamp = invalid))
+                org.junit.Assert.fail("Deleted note without timestamp must not be uploaded: $invalid")
+            } catch (e: IllegalStateException) {
+                assertTrue(e.message.orEmpty().contains("silinme tarihi"))
+            }
+        }
+    }
+
+    @Test
+    fun encodingRefusesActiveNotesWithStaleDeletionTimestamp() {
+        try {
+            CloudNoteTrashFields.encode(note.copy(isDeleted = false, deletedTimestamp = 7000L))
+            org.junit.Assert.fail("Active note with an old tombstone cannot round trip")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message.orEmpty().contains("silinme tarihi"))
+        }
+    }
+
+    @Test
+    fun everyEncodedValidTrashStateIsAcceptedByDecoder() {
+        val active = note.copy(isDeleted = false, deletedTimestamp = null)
+        val deleted = note.copy(isDeleted = true, deletedTimestamp = 8000L)
+        for (source in listOf(active, deleted)) {
+            val decoded = CloudNoteTrashFields.decode(CloudNoteTrashFields.encode(source))
+            assertEquals(source.isDeleted, decoded.isDeleted)
+            assertEquals(source.deletedTimestamp, decoded.deletedTimestamp)
+        }
+    }
+
+    @Test
     fun cloudTrashMetadataContainsNoPrivateNoteText() {
         val fields = CloudNoteTrashFields.encode(note.copy(content = "Çok özel bilgi"))
         assertTrue(fields.keys == setOf("isDeleted", "deletedTimestamp"))
