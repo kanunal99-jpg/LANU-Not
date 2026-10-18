@@ -451,8 +451,9 @@ class FirestoreSyncManager(
         }
     }
 
-    fun onNoteDeleted(noteId: Int) {
+    fun onNoteDeleted(note: Note) {
         if (!_state.value.isAutoSyncEnabled) return
+        val noteId = note.id
         if (noteId <= 0) return
         val targetVault = _state.value.syncId
         val version = autoSyncWrites.markChanged(noteId)
@@ -464,12 +465,20 @@ class FirestoreSyncManager(
                     }
                     val db = initializeFirestore()
                         ?: throw IllegalStateException("Firestore servisi kullanılamıyor.")
-                    db.collection("sync_vault")
-                        .document(targetVault)
-                        .collection("notes")
-                        .document(noteId.toString())
-                        .delete()
-                        .awaitTask()
+                    val noteRef = db.collection("sync_vault")
+                        .document(targetVault).collection("notes").document(noteId.toString())
+                    // Read and delete atomically. ID collisions and edits on
+                    // another device must NEVER be erased by a stale local delete.
+                    db.runTransaction { transaction ->
+                        val existing = transaction.get(noteRef)
+                        if (existing.exists()) {
+                            val remote = mapDocumentToNote(existing)
+                                ?: throw IllegalStateException("Bulut notu okunamadı; silinmedi.")
+                            CloudNoteDeleteGuard.requireSameSnapshot(note, remote)
+                            transaction.delete(noteRef)
+                        }
+                        true
+                    }.awaitTask()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
