@@ -122,12 +122,20 @@ class FirestoreSyncManager(
     }
 
     fun setSyncId(newSyncId: String) {
-        val trimmed = newSyncId.trim().uppercase()
-        if (trimmed.isNotBlank()) {
-            prefs.edit().putString("sync_id", trimmed).apply()
-            updateSyncState { it.copy(syncId = trimmed, statusMessage = "Eşitleme Kimliği güncellendi: $trimmed") }
-            restartRealtimeListener()
+        val normalized = CloudSyncId.normalizeManual(newSyncId)
+        if (normalized == null) {
+            updateSyncState {
+                it.copy(error = "Geçersiz eşitleme kimliği. Yalnızca harf, rakam, - ve _ kullanılabilir (en fazla 128 karakter).",
+                    statusMessage = null)
+            }
+            return // Keep the existing local setting and listener untouched.
         }
+        if (normalized == _state.value.syncId) return
+        prefs.edit().putString("sync_id", normalized).apply()
+        updateSyncState {
+            it.copy(syncId = normalized, statusMessage = "Eşitleme Kimliği güncellendi: $normalized", error = null)
+        }
+        restartRealtimeListener()
     }
 
     fun setCustomProjectId(projectId: String) {
