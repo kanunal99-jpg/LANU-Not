@@ -65,6 +65,7 @@ class FirestoreSyncManager(
     private var firestoreInstance: FirebaseFirestore? = null
     private var snapshotListener: ListenerRegistration? = null
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val autoSyncWrites = AutoSyncWriteSequencer()
 
     init {
         val savedSyncId = prefs.getString("sync_id", null) ?: CloudSyncId.generate().also {
@@ -139,6 +140,7 @@ class FirestoreSyncManager(
         }
         // The last-sync timestamp is a property of the previous vault, not
         // the newly selected one. Never claim the new vault was synchronized.
+        autoSyncWrites.invalidatePending()
         prefs.edit().putString("sync_id", normalized).remove("last_sync_time").apply()
         updateSyncState { CloudVaultSwitchPolicy.reset(it, normalized) }
         restartRealtimeListener()
@@ -153,6 +155,7 @@ class FirestoreSyncManager(
     }
 
     fun setAutoSyncEnabled(enabled: Boolean) {
+        if (enabled != _state.value.isAutoSyncEnabled) autoSyncWrites.invalidatePending()
         prefs.edit().putBoolean("auto_sync", enabled).apply()
         updateSyncState { it.copy(isAutoSyncEnabled = enabled) }
         if (enabled) {
@@ -402,17 +405,40 @@ class FirestoreSyncManager(
 
     fun onNoteCreatedOrUpdated(note: Note) {
         if (!_state.value.isAutoSyncEnabled) return
+        if (note.id <= 0) {
+            updateSyncState { it.copy(
+                error = "Kaydedilmemiş not buluta gönderilemez. Önce yerel kayıt tamamlanmalı.",
+                statusMessage = null
+            ) }
+            return
+        }
+        val targetVault = _state.value.syncId
+        val version = autoSyncWrites.markChanged(note.id)
         scope.launch {
             try {
-                val db = initializeFirestore() ?: return@launch
-                val syncId = _state.value.syncId
-                val noteData = CloudNotePayload.encode(note, System.currentTimeMillis())
-                db.collection("sync_vault")
-                    .document(syncId)
-                    .collection("notes")
-                    .document(note.id.toString())
-                    .set(noteData, SetOptions.merge())
-                    .awaitTask()
+                var performedWrite = false
+                val written = autoSyncWrites.runIfLatest(note.id, version) {
+                    if (!_state.value.isAutoSyncEnabled || _state.value.syncId != targetVault) {
+                        return@runIfLatest
+                    }
+                    val db = initializeFirestore()
+                        ?: throw IllegalStateException("Firestore servisi kullanılamıyor.")
+                    val noteData = CloudNotePayload.encode(note, System.currentTimeMillis())
+                    db.collection("sync_vault")
+                        .document(targetVault)
+                        .collection("notes")
+                        .document(note.id.toString())
+                        .set(noteData, SetOptions.merge())
+                        .awaitTask()
+                    performedWrite = true
+                }
+                if (written && performedWrite && _state.value.syncId == targetVault) {
+                    updateSyncState {
+                        if (it.error?.startsWith("Otomatik bulut yüklemesi başarısız") == true)
+                            it.copy(error = null, statusMessage = "Otomatik bulut kaydı yeniden başarılı.")
+                        else it
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 updateSyncState {
@@ -427,16 +453,24 @@ class FirestoreSyncManager(
 
     fun onNoteDeleted(noteId: Int) {
         if (!_state.value.isAutoSyncEnabled) return
+        if (noteId <= 0) return
+        val targetVault = _state.value.syncId
+        val version = autoSyncWrites.markChanged(noteId)
         scope.launch {
             try {
-                val db = initializeFirestore() ?: return@launch
-                val syncId = _state.value.syncId
-                db.collection("sync_vault")
-                    .document(syncId)
-                    .collection("notes")
-                    .document(noteId.toString())
-                    .delete()
-                    .awaitTask()
+                autoSyncWrites.runIfLatest(noteId, version) {
+                    if (!_state.value.isAutoSyncEnabled || _state.value.syncId != targetVault) {
+                        return@runIfLatest
+                    }
+                    val db = initializeFirestore()
+                        ?: throw IllegalStateException("Firestore servisi kullanılamıyor.")
+                    db.collection("sync_vault")
+                        .document(targetVault)
+                        .collection("notes")
+                        .document(noteId.toString())
+                        .delete()
+                        .awaitTask()
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 updateSyncState {
