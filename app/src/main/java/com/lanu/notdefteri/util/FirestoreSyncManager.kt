@@ -485,21 +485,21 @@ class FirestoreSyncManager(
         // Do not trust the payload ID over the Firestore document path.
         // Never invent a current timestamp for malformed legacy cloud data.
         val id = CloudNoteIdentityGuard.validatedId(doc.id, data["id"])
-        val title = data["title"] as? String ?: ""
-        val content = data["content"] as? String ?: ""
+        val title = CloudNoteContentGuard.requiredText(data, "title")
+        val content = CloudNoteContentGuard.requiredText(data, "content")
         val createdAt = CloudNoteIdentityGuard.validatedCreatedAt(data["createdAt"])
-        val isPinned = data["isPinned"] as? Boolean ?: false
-        val tag = (data["tag"] as? String)?.ifBlank { null }
-        val imagePath = (data["imagePath"] as? String)?.ifBlank { null }
+        val isPinned = CloudNoteContentGuard.boolean(data, "isPinned")
+        val tag = CloudNoteContentGuard.optionalText(data, "tag")
+        val imagePath = CloudNoteContentGuard.optionalText(data, "imagePath")
         val reminderTime = (data["reminderTime"] as? Number)?.toLong()?.takeIf { it > 0L }
         val latitude = (data["latitude"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
         val longitude = (data["longitude"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
-        val locationName = (data["locationName"] as? String)?.ifBlank { null }
-        val audioPath = (data["audioPath"] as? String)?.ifBlank { null }
+        val locationName = CloudNoteContentGuard.optionalText(data, "locationName")
+        val audioPath = CloudNoteContentGuard.optionalText(data, "audioPath")
         val trash = CloudNoteTrashFields.decode(data)
-        val isLocked = data["isLocked"] as? Boolean ?: false
-        val folder = (data["folder"] as? String)?.ifBlank { null }
-        val drawingPath = (data["drawingPath"] as? String)?.ifBlank { null }
+        val isLocked = CloudNoteContentGuard.boolean(data, "isLocked")
+        val folder = CloudNoteContentGuard.optionalText(data, "folder")
+        val drawingPath = CloudNoteContentGuard.optionalText(data, "drawingPath")
 
         return Note(
             id = id,
