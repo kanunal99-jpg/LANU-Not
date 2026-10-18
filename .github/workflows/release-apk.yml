@@ -25,6 +25,8 @@ jobs:
   build-test-release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      LANU_VERSION_CODE: ${{ github.run_number }}
 
     steps:
       - name: Checkout
@@ -79,6 +81,18 @@ jobs:
           test -x "$ZIPALIGN"
           "$APKSIGNER" verify --verbose "$APK"
           "$ZIPALIGN" -c -v 4 "$APK"
+
+      - name: Verify APK manifest versionCode matches release run
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -x "$AAPT"
+          APK="${{ steps.apk.outputs.apk_path }}"
+          ACTUAL="$("$AAPT" dump badging "$APK" |
+            sed -n "s/^package:.*versionCode='\\([0-9][0-9]*\\)'.*/\\1/p")"
+          test -n "$ACTUAL"
+          test "$ACTUAL" = "$LANU_VERSION_CODE"
 
       - name: Generate and verify APK SHA-256
         shell: bash
