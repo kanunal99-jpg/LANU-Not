@@ -25,6 +25,8 @@ object CloudNotePayload {
             "reminderTime" to (note.reminderTime ?: 0L),
             "latitude" to (note.latitude ?: 0.0),
             "longitude" to (note.longitude ?: 0.0),
+            "hasLatitude" to (note.latitude != null),
+            "hasLongitude" to (note.longitude != null),
             "locationName" to (note.locationName ?: ""),
             "audioPath" to (note.audioPath ?: ""),
             "isLocked" to note.isLocked,
